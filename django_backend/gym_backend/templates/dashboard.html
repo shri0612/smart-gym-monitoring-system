@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Gym Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* 🔥 CARDS */
+        .cards {
+            display: flex;
+            gap: 15px;
+            margin: 20px;
+        }
+
+        .card {
+            flex: 1;
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .card h3 {
+            color: #94a3b8;
+        }
+
+        .card p {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* 🔥 GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px;
+        }
+
+        .box {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+
+        /* 🔥 ALERT PANEL */
+        .alerts {
+            height: 300px;
+            overflow-y: scroll;
+        }
+
+        .alerts li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🏋️ Smart Gym Dashboard</h1>
+
+<!-- 🔥 TOP CARDS -->
+<div class="cards">
+    <div class="card">
+        <h3>🌡️ Temperature</h3>
+        <p>{{ latest_temp }}</p>
+    </div>
+
+    <div class="card">
+        <h3>👥 People</h3>
+        <p>{{ latest_people }}</p>
+    </div>
+
+    <div class="card">
+        <h3>🏋️ Machines</h3>
+        <p>{{ machine_count }}</p>
+    </div>
+
+    <div class="card">
+        <h3>🚨 Alerts</h3>
+        <p>{{ items|length }}</p>
+    </div>
+</div>
+
+<!-- 🔥 2x2 GRID -->
+<div class="grid">
+
+    <!-- Equipment -->
+    <div class="box">
+        <h3>📊 Equipment Usage</h3>
+        <canvas id="equipmentChart"></canvas>
+    </div>
+
+    <!-- Temperature -->
+    <div class="box">
+        <h3>🌡️ Temperature Trend</h3>
+        <canvas id="tempChart"></canvas>
+    </div>
+
+    <!-- Occupancy -->
+    <div class="box">
+        <h3>👥 Occupancy</h3>
+        <canvas id="occupancyChart"></canvas>
+    </div>
+
+    <!-- Donut -->
+<!--    <div class="box">-->
+<!--        <h3>🥧 Gym Distribution</h3>-->
+<!--        <canvas id="donutChart"></canvas>-->
+<!--    </div>-->
+
+<!--</div>-->
+
+<!-- 🔥 ALERT PANEL -->
+<div class="box" style="margin:20px;">
+    <h3>🚨 Alerts Panel</h3>
+
+    <div class="alerts">
+       <ul>
+{% for item in items %}
+    <li style="
+        padding:8px;
+        border-radius:6px;
+        margin-bottom:6px;
+        background:
+        {% if item.value > 45 %}
+            #7f1d1d
+        {% elif item.value > 30 %}
+            #78350f
+        {% else %}
+            #1e293b
+        {% endif %}
+    ">
+        {{ item.type }} - {{ item.value }} - {{ item.timestamp }}
+    </li>
+{% endfor %}
+</ul>
+    </div>
+</div>
+
+<script>
+
+    // 📊 Equipment Chart
+    new Chart(document.getElementById("equipmentChart"), {
+        type: 'line',
+        data: {
+            labels: [{% for item in equipment_data %}"{{ item.timestamp }}",{% endfor %}],
+            datasets: [{
+                label: 'Usage',
+                data: [{% for item in equipment_data %}{{ item.value }},{% endfor %}],
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56,189,248,0.2)',
+                fill: true,
+                tension: 0.4
+            }]
+        }
+    });
+
+    // 🌡️ Temperature Chart
+    new Chart(document.getElementById("tempChart"), {
+        type: 'line',
+        data: {
+            labels: [{% for item in temp_data %}"{{ item.timestamp }}",{% endfor %}],
+            datasets: [{
+                label: 'Temperature',
+                data: [{% for item in temp_data %}{{ item.value }},{% endfor %}],
+                borderColor: '#f87171',
+                backgroundColor: 'rgba(248,113,113,0.2)',
+                fill: true,
+                tension: 0.4
+            }]
+        }
+    });
+
+    // 👥 Occupancy Chart
+    new Chart(document.getElementById("occupancyChart"), {
+        type: 'bar',
+        data: {
+            labels: [{% for item in occupancy_data %}"{{ item.timestamp }}",{% endfor %}],
+            datasets: [{
+                label: 'People',
+                data: [{% for item in occupancy_data %}{{ item.value }},{% endfor %}],
+                backgroundColor: '#34d399'
+            }]
+        }
+    });
+
+    // 🥧 Donut Chart
+    new Chart(document.getElementById("donutChart"), {
+        type: 'doughnut',
+        data: {
+            labels: ['Temperature', 'People', 'Machines'],
+            datasets: [{
+                data: [
+                    {{ latest_temp|default:0 }},
+                    {{ latest_people|default:0 }},
+                    {{ equipment_data|length }}
+                ],
+                backgroundColor: [
+                    '#f87171',
+                    '#34d399',
+                    '#38bdf8'
+                ]
+            }]
+        }
+    });
+
+    // 🔄 Auto refresh (10 sec for testing)
+    setTimeout(() => {
+        location.reload();
+    }, 10000);
+
+</script>
+
+</body>
+</html>
