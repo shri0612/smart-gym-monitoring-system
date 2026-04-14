@@ -17,7 +17,7 @@ last_alert_time = {}
 COOLDOWN = 300  # 5 minutes
 
 # 🌐 Django alert endpoint
-DJANGO_ALERT_URL = "http://127.0.0.1:8000/receive-alert/"
+DJANGO_ALERT_URL = "http://127.0.0.1/receive-alert/"
 
 # 🇮🇪 Ireland timezone
 IRELAND_TZ = ZoneInfo("Europe/Dublin")
