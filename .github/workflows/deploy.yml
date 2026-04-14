@@ -17,15 +17,19 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/smart-gym-monitoring-system
+
+            git reset --hard
+            git clean -fd
             git pull origin main
 
             cd django_backend/gym_backend
-            source ../venv/bin/activate
+
+            source venv/bin/activate
 
             pip install -r requirements.txt
 
-            python manage.py migrate --noinput
-            python manage.py collectstatic --noinput
+            python3 manage.py migrate --noinput
+            python3 manage.py collectstatic --noinput
 
             sudo systemctl restart gunicorn
             sudo systemctl restart nginx
