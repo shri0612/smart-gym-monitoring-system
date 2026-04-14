@@ -18,18 +18,26 @@ jobs:
           script: |
             cd /home/ubuntu/smart-gym-monitoring-system
 
+            #  Fix git conflicts
             git reset --hard
             git clean -fd
             git pull origin main
 
+            #  Go to Django project
             cd django_backend/gym_backend
 
+            #  Activate virtual environment
             source venv/bin/activate
 
-            pip install -r requirements.txt
+            #  Install dependencies (FIXED PATH)
+            pip install -r ../../requirements.txt
 
+            #  Run migrations
             python3 manage.py migrate --noinput
+
+            #  Collect static files
             python3 manage.py collectstatic --noinput
 
+            #  Restart services
             sudo systemctl restart gunicorn
             sudo systemctl restart nginx
