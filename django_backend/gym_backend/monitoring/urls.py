@@ -1,9 +1,9 @@
 from django.urls import path
-from .views import receive_alert, get_alerts
-from .views import dashboard
+from . import views
 
 urlpatterns = [
-    path('alerts/', receive_alert),
-    path('alerts/view/', get_alerts),
-     path('dashboard/', dashboard),
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('receive-alert/', views.receive_alert, name='receive_alert'),
+    path('alerts/view/', views.get_alerts, name='get_alerts'),
+    path('api/data/', views.get_latest_data, name='get_latest_data'),
 ]

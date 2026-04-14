@@ -2,48 +2,63 @@
 <html>
 <head>
     <title>Smart Gym Dashboard</title>
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         body {
             margin: 0;
             font-family: 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: white;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: #fff;
         }
 
         h1 {
             text-align: center;
-            padding: 20px;
+            padding: 24px 20px 10px;
+            margin: 0;
+            font-size: 32px;
         }
 
-        /* 🔥 CARDS */
+        #loading {
+            display: none;
+            text-align: center;
+            font-size: 16px;
+            color: #38bdf8;
+            margin-bottom: 10px;
+        }
+
         .cards {
             display: flex;
-            gap: 15px;
+            gap: 18px;
             margin: 20px;
+            flex-wrap: wrap;
         }
 
         .card {
             flex: 1;
+            min-width: 180px;
             background: #1e293b;
+            border-radius: 20px;
             padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            transition: 0.3s;
         }
 
-        .card h3 {
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .title {
+            font-size: 18px;
             color: #94a3b8;
+            margin-bottom: 10px;
         }
 
-        .card p {
-            font-size: 24px;
+        .value {
+            font-size: 32px;
             font-weight: bold;
         }
 
-        /* 🔥 GRID */
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -52,10 +67,16 @@
         }
 
         .box {
-            background: #1e293b;
-            padding: 15px;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            background: rgba(30, 41, 59, 0.95);
+            padding: 18px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+        }
+
+        .box h3 {
+            margin-top: 0;
+            margin-bottom: 14px;
+            color: #e2e8f0;
         }
 
         canvas {
@@ -63,173 +84,293 @@
             height: 300px !important;
         }
 
-        /* 🔥 ALERT PANEL */
         .alerts {
-            height: 300px;
-            overflow-y: scroll;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 4px;
         }
 
-        .alerts li {
-            margin-bottom: 8px;
+        #alerts-list {
+            padding: 0;
+            margin: 0;
+        }
+
+        #alerts-list li {
+            list-style: none;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 10px;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 
 <body>
 
-<h1>🏋️ Smart Gym Dashboard</h1>
+    <h1>📊 Smart Gym Dashboard</h1>
+    <div id="loading">⏳ Loading latest data...</div>
 
-<!-- 🔥 TOP CARDS -->
-<div class="cards">
-    <div class="card">
-        <h3>🌡️ Temperature</h3>
-        <p>{{ latest_temp }}</p>
+    <div class="cards">
+        <div class="card">
+            <div class="title">🌡 Temperature</div>
+            <div class="value" id="temp">{{ latest_temp|default:"--" }}</div>
+        </div>
+
+        <div class="card">
+            <div class="title">👥 People</div>
+            <div class="value" id="people">{{ latest_people|default:"--" }}</div>
+        </div>
+
+        <div class="card">
+            <div class="title">🏋 Machines</div>
+            <div class="value" id="machines">{{ machine_count|default:"--" }}</div>
+        </div>
+
+        <div class="card">
+            <div class="title">🚨 Alerts</div>
+            <div class="value" id="alerts">{{ latest_alerts|length }}</div>
+        </div>
     </div>
 
-    <div class="card">
-        <h3>👥 People</h3>
-        <p>{{ latest_people }}</p>
+    <div class="grid">
+        <div class="box">
+            <h3>📈 Equipment Usage</h3>
+            <canvas id="equipmentChart"></canvas>
+        </div>
+
+        <div class="box">
+            <h3>🌡 Temperature Trend</h3>
+            <canvas id="tempChart"></canvas>
+        </div>
+
+        <div class="box">
+            <h3>👥 Occupancy</h3>
+            <canvas id="occupancyChart"></canvas>
+        </div>
+
+        <div class="box">
+            <h3>🚨 Alerts Overview</h3>
+            <div class="alerts">
+                <ul id="alerts-list">
+                    {% for item in latest_alerts %}
+                        <li style="
+                            background:{% if item.alert_type == 'CRITICAL' %}red{% else %}#f59e0b{% endif %};
+                            {% if item.alert_type == 'CRITICAL' %}animation: blink 1s infinite;{% endif %}
+                        ">
+                            {{ item.sensor }} - {{ item.value }} - {{ item.timestamp }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
-
-    <div class="card">
-        <h3>🏋️ Machines</h3>
-        <p>{{ machine_count }}</p>
-    </div>
-
-    <div class="card">
-        <h3>🚨 Alerts</h3>
-        <p>{{ items|length }}</p>
-    </div>
-</div>
-
-<!-- 🔥 2x2 GRID -->
-<div class="grid">
-
-    <!-- Equipment -->
-    <div class="box">
-        <h3>📊 Equipment Usage</h3>
-        <canvas id="equipmentChart"></canvas>
-    </div>
-
-    <!-- Temperature -->
-    <div class="box">
-        <h3>🌡️ Temperature Trend</h3>
-        <canvas id="tempChart"></canvas>
-    </div>
-
-    <!-- Occupancy -->
-    <div class="box">
-        <h3>👥 Occupancy</h3>
-        <canvas id="occupancyChart"></canvas>
-    </div>
-
-    <!-- Donut -->
-<!--    <div class="box">-->
-<!--        <h3>🥧 Gym Distribution</h3>-->
-<!--        <canvas id="donutChart"></canvas>-->
-<!--    </div>-->
-
-<!--</div>-->
-
-<!-- 🔥 ALERT PANEL -->
-<div class="box" style="margin:20px;">
-    <h3>🚨 Alerts Panel</h3>
-
-    <div class="alerts">
-       <ul>
-{% for item in items %}
-    <li style="
-        padding:8px;
-        border-radius:6px;
-        margin-bottom:6px;
-        background:
-        {% if item.value > 45 %}
-            #7f1d1d
-        {% elif item.value > 30 %}
-            #78350f
-        {% else %}
-            #1e293b
-        {% endif %}
-    ">
-        {{ item.type }} - {{ item.value }} - {{ item.timestamp }}
-    </li>
-{% endfor %}
-</ul>
-    </div>
-</div>
 
 <script>
+    function formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleString('en-IE', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+    }
 
-    // 📊 Equipment Chart
-    new Chart(document.getElementById("equipmentChart"), {
+    function sortByLatest(items) {
+        return [...items].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
+
+    const equipmentChart = new Chart(document.getElementById("equipmentChart"), {
         type: 'line',
         data: {
-            labels: [{% for item in equipment_data %}"{{ item.timestamp }}",{% endfor %}],
+            labels: [],
             datasets: [{
                 label: 'Usage',
-                data: [{% for item in equipment_data %}{{ item.value }},{% endfor %}],
+                data: [],
                 borderColor: '#38bdf8',
                 backgroundColor: 'rgba(56,189,248,0.2)',
-                fill: true,
-                tension: 0.4
+                tension: 0.4,
+                fill: true
             }]
+        },
+        options: {
+            animation: true,
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true }
+            }
         }
     });
 
-    // 🌡️ Temperature Chart
-    new Chart(document.getElementById("tempChart"), {
+    const tempChart = new Chart(document.getElementById("tempChart"), {
         type: 'line',
         data: {
-            labels: [{% for item in temp_data %}"{{ item.timestamp }}",{% endfor %}],
+            labels: [],
             datasets: [{
                 label: 'Temperature',
-                data: [{% for item in temp_data %}{{ item.value }},{% endfor %}],
-                borderColor: '#f87171',
-                backgroundColor: 'rgba(248,113,113,0.2)',
-                fill: true,
-                tension: 0.4
+                data: [],
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34,197,94,0.2)',
+                tension: 0.4,
+                fill: true
             }]
+        },
+        options: {
+            animation: true,
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true }
+            }
         }
     });
 
-    // 👥 Occupancy Chart
-    new Chart(document.getElementById("occupancyChart"), {
+    const occupancyChart = new Chart(document.getElementById("occupancyChart"), {
         type: 'bar',
         data: {
-            labels: [{% for item in occupancy_data %}"{{ item.timestamp }}",{% endfor %}],
+            labels: [],
             datasets: [{
                 label: 'People',
-                data: [{% for item in occupancy_data %}{{ item.value }},{% endfor %}],
-                backgroundColor: '#34d399'
+                data: [],
+                backgroundColor: '#a78bfa'
             }]
+        },
+        options: {
+            animation: true,
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true }
+            }
         }
     });
 
-    // 🥧 Donut Chart
-    new Chart(document.getElementById("donutChart"), {
-        type: 'doughnut',
-        data: {
-            labels: ['Temperature', 'People', 'Machines'],
-            datasets: [{
-                data: [
-                    {{ latest_temp|default:0 }},
-                    {{ latest_people|default:0 }},
-                    {{ equipment_data|length }}
-                ],
-                backgroundColor: [
-                    '#f87171',
-                    '#34d399',
-                    '#38bdf8'
-                ]
-            }]
-        }
-    });
+    function updateAlerts(alertData) {
+        const list = document.getElementById("alerts-list");
+        list.innerHTML = "";
 
-    // 🔄 Auto refresh (10 sec for testing)
-    setTimeout(() => {
+        alertData.forEach(item => {
+            if (item.alert_type) {
+                const li = document.createElement("li");
+                li.innerText = `${item.sensor} - ${item.value} - ${formatTimestamp(item.timestamp)}`;
+
+                if (item.alert_type === "CRITICAL") {
+                    li.style.background = "red";
+                    li.style.animation = "blink 1s infinite";
+                } else {
+                    li.style.background = "#f59e0b";
+                }
+
+                list.appendChild(li);
+            }
+        });
+
+        document.getElementById("alerts").innerText = alertData.length;
+    }
+
+    function updateCards(sensorData) {
+        const tempItems = sortByLatest(sensorData.filter(item => item.type === 'temperature')).slice(0, 10);
+        const occupancyItems = sortByLatest(sensorData.filter(item => item.type === 'occupancy')).slice(0, 10);
+        const equipmentItems = sortByLatest(sensorData.filter(item => item.type === 'equipment')).slice(0, 10);
+
+        if (tempItems.length > 0) {
+            document.getElementById("temp").innerText = tempItems[0].value;
+        }
+
+        if (occupancyItems.length > 0) {
+            document.getElementById("people").innerText = occupancyItems[0].value;
+        }
+
+        const latestMachineStatus = {};
+        sortByLatest(sensorData.filter(item => item.type === 'equipment')).forEach(item => {
+            if (!(item.key in latestMachineStatus)) {
+                latestMachineStatus[item.key] = Number(item.value);
+            }
+        });
+
+        const activeMachines = Object.values(latestMachineStatus).filter(v => v > 0).length;
+        document.getElementById("machines").innerText = activeMachines;
+    }
+
+    async function fetchSensorData() {
+        const response = await fetch('/api/data/');
+        const data = await response.json();
+
+        console.log("Sensor API data:", data);
+
+        const sensorData = Array.isArray(data) ? data : [];
+
+        const tempItems = sortByLatest(
+            sensorData.filter(item => item.type === 'temperature')
+        ).slice(0, 10);
+
+        const occupancyItems = sortByLatest(
+            sensorData.filter(item => item.type === 'occupancy')
+        ).slice(0, 10);
+
+        const equipmentItems = sortByLatest(
+            sensorData.filter(item => item.type === 'equipment')
+        ).slice(0, 10);
+
+        tempChart.data.labels = tempItems.map(item => formatTimestamp(item.timestamp)).reverse();
+        tempChart.data.datasets[0].data = tempItems.map(item => Number(item.value)).reverse();
+        tempChart.update();
+
+        occupancyChart.data.labels = occupancyItems.map(item => formatTimestamp(item.timestamp)).reverse();
+        occupancyChart.data.datasets[0].data = occupancyItems.map(item => Number(item.value)).reverse();
+        occupancyChart.update();
+
+        equipmentChart.data.labels = equipmentItems.map(item => formatTimestamp(item.timestamp)).reverse();
+        equipmentChart.data.datasets[0].data = equipmentItems.map(item => Number(item.value)).reverse();
+        equipmentChart.update();
+
+        updateCards(sensorData);
+    }
+
+    async function fetchAlertData() {
+        const response = await fetch('/alerts/view/');
+        const result = await response.json();
+
+        console.log("Alert API data:", result);
+
+        const alertData = result.alerts || [];
+        updateAlerts(alertData);
+    }
+
+    async function fetchData() {
+        try {
+            document.getElementById("loading").style.display = "block";
+            await fetchSensorData();
+            await fetchAlertData();
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        } finally {
+            document.getElementById("loading").style.display = "none";
+        }
+    }
+
+    fetchData();
+
+    setInterval(() => {
         location.reload();
-    }, 10000);
-
+    }, 60000);
 </script>
 
 </body>

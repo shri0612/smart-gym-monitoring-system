@@ -4,10 +4,12 @@ import json
 from django.shortcuts import render
 import boto3
 
+alerts = []
 
-alerts = []  # temporary storage (later DB)
 
-
+# ============================
+# 🚨 RECEIVE ALERT
+# ============================
 @csrf_exempt
 def receive_alert(request):
     if request.method == "POST":
@@ -18,6 +20,10 @@ def receive_alert(request):
 
             alerts.append(data)
 
+            # keep only latest 50 alerts
+            if len(alerts) > 50:
+                del alerts[:-50]
+
             return JsonResponse({"message": "Alert saved"}, status=200)
 
         except Exception as e:
@@ -26,30 +32,62 @@ def receive_alert(request):
     return JsonResponse({"error": "Invalid request"}, status=405)
 
 
+# ============================
+# 📡 GET ALERTS
+# ============================
 def get_alerts(request):
-    return JsonResponse({"alerts": alerts})
+    latest_alerts = sorted(alerts, key=lambda x: x.get('timestamp', ''), reverse=True)[:20]
+    return JsonResponse({"alerts": latest_alerts})
 
 
+# ============================
+# 📊 GET LATEST DATA API
+# Returns enough recent records so frontend can find latest 10 per type
+# ============================
+def get_latest_data(request):
+    try:
+        dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')
+        table = dynamodb.Table('gym_data')
+
+        response = table.scan()
+        items = response.get('Items', [])
+
+        items = sorted(items, key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        # return more records so charts can consistently get latest 10 per type
+        latest = items[:100]
+
+        return JsonResponse(latest, safe=False)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ============================
+# 📊 DASHBOARD
+# ============================
 def dashboard(request):
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-    table = dynamodb.Table('gym_data')
+    try:
+        print("🔌 Connecting to DynamoDB...")
 
-    response = table.scan()
-    items = response.get('Items', [])
+        dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')
+        table = dynamodb.Table('gym_data')
 
-    # 🔥 Sort + limit (last 20 records)
-    items = sorted(items, key=lambda x: x.get('timestamp', ''))[-20:]
+        response = table.scan()
+        items = response.get('Items', [])
 
-    # 🔥 Initialize
+        items = sorted(items, key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        print(f"✅ DynamoDB items fetched: {len(items)}")
+
+    except Exception as e:
+        print("❌ DynamoDB error:", e)
+        items = []
+
     latest_temp = None
     latest_people = None
 
-    equipment_data = []
-    temp_data = []
-    occupancy_data = []
-
-    # 🔥 Get latest values properly (reverse loop)
-    for item in reversed(items):
+    for item in items:
         if item.get('type') == 'temperature' and latest_temp is None:
             latest_temp = item.get('value')
 
@@ -59,38 +97,37 @@ def dashboard(request):
         if latest_temp is not None and latest_people is not None:
             break
 
-    # 🔥 Separate data for charts
+    # latest 10 per type
+    equipment_data = [item for item in items if item.get('type') == 'equipment'][:10]
+    temp_data = [item for item in items if item.get('type') == 'temperature'][:10]
+    occupancy_data = [item for item in items if item.get('type') == 'occupancy'][:10]
+
+    # machine count based on latest equipment status per machine
+    latest_status = {}
     for item in items:
         if item.get('type') == 'equipment':
-            equipment_data.append(item)
+            key = item.get('key')
+            if key not in latest_status:
+                latest_status[key] = item.get('value')
 
-        elif item.get('type') == 'temperature':
-            temp_data.append(item)
+    machine_count = sum(
+        1 for v in latest_status.values()
+        if v is not None and str(v).isdigit() and int(v) > 0
+    )
 
-        elif item.get('type') == 'occupancy':
-            occupancy_data.append(item)
+    latest_alerts = sorted(alerts, key=lambda x: x.get('timestamp', ''), reverse=True)[:20]
 
-    # 🔥 Limit chart data (last 10)
-    equipment_data = equipment_data[-10:]
-    temp_data = temp_data[-10:]
-    occupancy_data = occupancy_data[-10:]
-
-    # 🔥 Unique machine count (correct logic)
-    machines = set()
-    for item in items:
-        if item.get('type') == 'equipment':
-            machines.add(item.get('key'))
-
-    machine_count = len(machines)
+    print("DEBUG machine_status:", latest_status)
 
     context = {
-        "items": items,
+        "items": items[:20],
         "latest_temp": latest_temp,
         "latest_people": latest_people,
         "equipment_data": equipment_data,
         "temp_data": temp_data,
         "occupancy_data": occupancy_data,
         "machine_count": machine_count,
+        "latest_alerts": latest_alerts,
     }
 
     return render(request, "dashboard.html", context)

@@ -1,0 +1,17 @@
+{
+  "treadmill_1": {
+    "status": "in_use",
+    "duration": 10,
+    "user_id": "user_5"
+  },
+  "treadmill_2": {
+    "status": "idle",
+    "duration": 0,
+    "user_id": null
+  },
+  "treadmill_3": {
+    "status": "in_use",
+    "duration": 33,
+    "user_id": "user_4"
+  }
+}
